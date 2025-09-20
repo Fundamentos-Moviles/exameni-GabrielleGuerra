@@ -44,19 +44,24 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
 
   static Color _randomColor() {
     final Random random = Random();
-    List<Color> gameColors = [
-      Colors.red,
-      Colors.blue,
-      Colors.green,
-      Colors.yellow,
-      Colors.orange,
-      Colors.purple,
-      Colors.pink,
-      Colors.teal,
-      Colors.brown,
-      Colors.indigo,
-    ];
-    return gameColors[random.nextInt(gameColors.length)];
+    return Color(0xFF000000 + random.nextInt(0x00FFFFFF));
+  }
+
+  static List<Color> _generate10UniqueColors() {
+    Set<Color> uniqueColors = <Color>{};
+    final Random random = Random();
+
+    while (uniqueColors.length < 10) {
+      Color newColor = Color(0xFF000000 + random.nextInt(0x00FFFFFF));
+      // Evitar colores muy similares al gris para mejor visibilidad
+      if (newColor != Colors.grey &&
+              (newColor.red - newColor.green).abs() > 30 ||
+          (newColor.red - newColor.blue).abs() > 30 ||
+          (newColor.green - newColor.blue).abs() > 30) {
+        uniqueColors.add(newColor);
+      }
+    }
+    return uniqueColors.toList();
   }
 
   @override
@@ -66,10 +71,10 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
   }
 
   void _initializeGame() {
+    List<Color> uniqueColors = _generate10UniqueColors();
     // Crear pares de colores (10 pares para 20 bloques)
     hiddenColors = [];
-    for (int i = 0; i < 10; i++) {
-      Color color = _randomColor();
+    for (Color color in uniqueColors) {
       hiddenColors.add(color);
       hiddenColors.add(color);
     }
@@ -105,6 +110,7 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
   }
 
   void _evaluatePair() {
+    // Esperar 1 segundo antes de evaluar para que el usuario vea los colores
     Future.delayed(const Duration(milliseconds: 1000), () {
       setState(() {
         int first = selectedIndices[0];
@@ -158,6 +164,7 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
         ),
         itemCount: 20,
         itemBuilder: (context, index) {
+          // computar fila y columna para mostrar en el centro del bloque solo me sirve para poder debuggear jijij
           int row = index ~/ 4;
           int col = index % 4;
 
