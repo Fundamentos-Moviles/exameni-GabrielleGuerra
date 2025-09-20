@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 void main() {
   runApp(const ColorBlocksApp());
@@ -26,14 +27,127 @@ class ColorBlocksScreen extends StatefulWidget {
 }
 
 class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
-  // 5 rows x 4 columns = 20 blocks, all gray
-  List<Color> colors = List.generate(20, (index) => Colors.grey);
+  // Colores ocultos (la "respuesta" del memorama)
+  late List<Color> hiddenColors;
+
+  // Colores visibles (lo que muestra la interfaz)
+  List<Color> visibleColors = List.generate(20, (index) => Colors.grey);
+
+  // Estado de cada bloque: 0=oculto, 1=seleccionado temporalmente, 2=emparejado
+  List<int> blockStates = List.generate(20, (index) => 0);
+
+  // Índices de los bloques actualmente seleccionados
+  List<int> selectedIndices = [];
+
+  // Bloquear interacción mientras se evalúa el par
+  bool isEvaluating = false;
+
+  static Color _randomColor() {
+    final Random random = Random();
+    List<Color> gameColors = [
+      Colors.red,
+      Colors.blue,
+      Colors.green,
+      Colors.yellow,
+      Colors.orange,
+      Colors.purple,
+      Colors.pink,
+      Colors.teal,
+      Colors.brown,
+      Colors.indigo,
+    ];
+    return gameColors[random.nextInt(gameColors.length)];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeGame();
+  }
+
+  void _initializeGame() {
+    // Crear pares de colores (10 pares para 20 bloques)
+    hiddenColors = [];
+    for (int i = 0; i < 10; i++) {
+      Color color = _randomColor();
+      hiddenColors.add(color);
+      hiddenColors.add(color);
+    }
+    // Mezclar los colores
+    hiddenColors.shuffle();
+  }
+
+  void onBlockTap(int index) {
+    // No hacer nada si:
+    // - Está evaluando un par
+    // - El bloque ya está emparejado
+    // - Ya hay 2 bloques seleccionados
+    // - El bloque ya está seleccionado
+    if (isEvaluating ||
+        blockStates[index] == 2 ||
+        selectedIndices.length >= 2 ||
+        selectedIndices.contains(index)) {
+      return;
+    }
+
+    setState(() {
+      // Mostrar el color oculto y marcar como seleccionado temporalmente
+      visibleColors[index] = hiddenColors[index];
+      blockStates[index] = 1;
+      selectedIndices.add(index);
+
+      // Si se han seleccionado 2 bloques, evaluar el par
+      if (selectedIndices.length == 2) {
+        isEvaluating = true;
+        _evaluatePair();
+      }
+    });
+  }
+
+  void _evaluatePair() {
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      setState(() {
+        int first = selectedIndices[0];
+        int second = selectedIndices[1];
+
+        if (hiddenColors[first] == hiddenColors[second]) {
+          // Coinciden: marcar como emparejados
+          blockStates[first] = 2;
+          blockStates[second] = 2;
+        } else {
+          // No coinciden: volver a gris
+          visibleColors[first] = Colors.grey;
+          visibleColors[second] = Colors.grey;
+          blockStates[first] = 0;
+          blockStates[second] = 0;
+        }
+
+        // Limpiar selección
+        selectedIndices.clear();
+        isEvaluating = false;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Memorama - Gabrielle Montserrat Guerra Gomez'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              setState(() {
+                _initializeGame();
+                visibleColors = List.generate(20, (index) => Colors.grey);
+                blockStates = List.generate(20, (index) => 0);
+                selectedIndices.clear();
+                isEvaluating = false;
+              });
+            },
+          ),
+        ],
       ),
       body: GridView.builder(
         padding: const EdgeInsets.all(8.0),
@@ -47,24 +161,32 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
           int row = index ~/ 4;
           int col = index % 4;
 
-          return Container(
-            decoration: BoxDecoration(
-              color: colors[index],
-              borderRadius: BorderRadius.circular(10.0),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.25),
-                  blurRadius: 4,
-                  offset: const Offset(2, 2),
-                ),
-              ],
-            ),
-            child: Center(
-              child: Text(
-                '${row + 1}-${col + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
+          return GestureDetector(
+            onTap: () => onBlockTap(index),
+            child: Container(
+              decoration: BoxDecoration(
+                color: visibleColors[index],
+                borderRadius: BorderRadius.circular(10.0),
+                border: blockStates[index] == 1
+                    ? Border.all(color: Colors.white, width: 3)
+                    : null,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.25),
+                    blurRadius: 4,
+                    offset: const Offset(2, 2),
+                  ),
+                ],
+              ),
+              child: Center(
+                child: Text(
+                  '${row + 1}-${col + 1}',
+                  style: TextStyle(
+                    color: visibleColors[index].computeLuminance() > 0.5
+                        ? Colors.black
+                        : Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
