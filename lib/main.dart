@@ -42,18 +42,17 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
   // Bloquear interacción mientras se evalúa el par
   bool isEvaluating = false;
 
-  static Color _randomColor() {
-    final Random random = Random();
-    return Color(0xFF000000 + random.nextInt(0x00FFFFFF));
-  }
+  // Indicar si el juego ha sido completado
+  bool gameCompleted = false;
 
+  // Generar 10 colores únicos
   static List<Color> _generate10UniqueColors() {
     Set<Color> uniqueColors = <Color>{};
     final Random random = Random();
 
     while (uniqueColors.length < 10) {
       Color newColor = Color(0xFF000000 + random.nextInt(0x00FFFFFF));
-      // Evitar colores muy similares al gris para mejor visibilidad
+      // Asegurarse de que los colores sean todos diferentes por que en la otra version se repetia mucho el morado y el amarillo
       if (newColor != Colors.grey &&
               (newColor.red - newColor.green).abs() > 30 ||
           (newColor.red - newColor.blue).abs() > 30 ||
@@ -61,6 +60,7 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
         uniqueColors.add(newColor);
       }
     }
+
     return uniqueColors.toList();
   }
 
@@ -80,6 +80,17 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
     }
     // Mezclar los colores
     hiddenColors.shuffle();
+  }
+
+  void _resetGame() {
+    setState(() {
+      _initializeGame();
+      visibleColors = List.generate(20, (index) => Colors.grey);
+      blockStates = List.generate(20, (index) => 0);
+      selectedIndices.clear();
+      isEvaluating = false;
+      gameCompleted = false;
+    });
   }
 
   void onBlockTap(int index) {
@@ -120,6 +131,9 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
           // Coinciden: marcar como emparejados
           blockStates[first] = 2;
           blockStates[second] = 2;
+
+          // Haaaber si el juego se completo
+          _checkGameCompleted();
         } else {
           // No coinciden: volver a gris
           visibleColors[first] = Colors.grey;
@@ -135,6 +149,48 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
     });
   }
 
+  //Aqui tan las funciones para resetear el juego y para checar si se completo
+  void _checkGameCompleted() {
+    bool allMatched = blockStates.every((state) => state == 2);
+    if (allMatched) {
+      gameCompleted = true;
+      Future.delayed(const Duration(milliseconds: 1000), () {
+        // Mostramos un orale si le sabes
+        _ShowGameCompletedDialog();
+      });
+    }
+  }
+
+  void _ShowGameCompletedDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('¡Felicidades!'),
+          content: const Text(
+            'Has completado el memorama rifadito.\n¿Quieres jugar de nuevo?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _resetGame();
+              },
+              child: const Text('Reiniciar'),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cerrar'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -144,13 +200,7 @@ class _ColorBlocksScreenState extends State<ColorBlocksScreen> {
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: () {
-              setState(() {
-                _initializeGame();
-                visibleColors = List.generate(20, (index) => Colors.grey);
-                blockStates = List.generate(20, (index) => 0);
-                selectedIndices.clear();
-                isEvaluating = false;
-              });
+              _resetGame();
             },
           ),
         ],
